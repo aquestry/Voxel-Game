@@ -5,15 +5,24 @@ public partial class Generator : Node
 {
     private OpenSimplexNoise noise;
     private int[,,] grid;
+
+    [Export]
+    public int Resolution { get; set; } = 1;
+    
     [Export]
     public CompressedTexture2D BlockTexture { get; set; }
 
     public override void _Ready()
     {
-        int width = 128, depth = 128, height = 20, seed = 42;
+        int baseWidth = 128, baseDepth = 128, baseHeight = 20, seed = 42;
         noise = new OpenSimplexNoise(seed);
+
+        int width = baseWidth / Resolution;
+        int depth = baseDepth / Resolution;
+        int height = baseHeight / Resolution;
+
         grid = new int[width, height, depth];
-        GenerateTerrain(width, depth, height, 0.1);
+        GenerateTerrain(width, depth, height, 0.1 / Resolution);
         CreateMesh(width, depth, height);
     }
 
