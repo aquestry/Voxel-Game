@@ -8,22 +8,37 @@ public partial class Generator : Node
 
     [Export]
     public int Resolution { get; set; } = 1;
-    
+
     [Export]
     public CompressedTexture2D BlockTexture { get; set; }
 
     public override void _Ready()
     {
-        int baseWidth = 128, baseDepth = 128, baseHeight = 20, seed = 42;
-        noise = new OpenSimplexNoise(seed);
+        Regenerate();
+    }
 
-        int width = baseWidth / Resolution;
-        int depth = baseDepth / Resolution;
-        int height = baseHeight / Resolution;
+    private void Regenerate()
+    {
+        foreach (Node child in GetChildren())
+        {
+            RemoveChild(child);
+            child.QueueFree();
+        }
 
+        int baseWidth = 128;
+        int baseDepth = 128;
+        int baseHeight = 20;
+
+        int width = baseWidth * Resolution;
+        int depth = baseDepth * Resolution;
+        int height = baseHeight * Resolution;
+
+        double cubeSize = 1.0 / Resolution;
+
+        noise = new OpenSimplexNoise();
         grid = new int[width, height, depth];
         GenerateTerrain(width, depth, height, 0.1 / Resolution);
-        CreateMesh(width, depth, height);
+        CreateMesh(width, depth, height, cubeSize);
     }
 
     private void GenerateTerrain(int width, int depth, int height, double scale)
@@ -41,7 +56,7 @@ public partial class Generator : Node
         }
     }
 
-    private void CreateMesh(int width, int depth, int height)
+    private void CreateMesh(int width, int depth, int height, double cubeSize)
     {
         var surfaceTool = new SurfaceTool();
         surfaceTool.Begin(Mesh.PrimitiveType.Triangles);
@@ -54,7 +69,7 @@ public partial class Generator : Node
                 {
                     if (grid[x, y, z] == 1)
                     {
-                        AddVisibleFaces(surfaceTool, x, y, z, width, height, depth);
+                        AddVisibleFaces(surfaceTool, x, y, z, width, height, depth, cubeSize);
                     }
                 }
             }
@@ -67,68 +82,70 @@ public partial class Generator : Node
             TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest
         };
 
-        var meshInstance = new MeshInstance3D 
-        { 
+        var meshInstance = new MeshInstance3D
+        {
             Mesh = surfaceTool.Commit(),
-            MaterialOverride = material 
+            MaterialOverride = material
         };
         AddChild(meshInstance);
     }
 
-    private void AddVisibleFaces(SurfaceTool surfaceTool, int x, int y, int z, int width, int height, int depth)
+    private void AddVisibleFaces(SurfaceTool surfaceTool, int x, int y, int z, int width, int height, int depth, double cubeSize)
     {
-        if (z == 0 || (z > 0 && grid[x, y, z-1] == 0))
-        {
-            AddQuad(surfaceTool, 
-                new Vector3(x, y, z),
-                new Vector3(x + 1, y, z),
-                new Vector3(x + 1, y + 1, z),
-                new Vector3(x, y + 1, z));
-        }
+        Vector3 offset = new Vector3(x, y, z) * (float)cubeSize;
 
-        if (z == depth-1 || (z < depth-1 && grid[x, y, z+1] == 0))
+        if (z == 0 || (z > 0 && grid[x, y, z - 1] == 0))
         {
             AddQuad(surfaceTool,
-                new Vector3(x, y, z + 1),
-                new Vector3(x, y + 1, z + 1),
-                new Vector3(x + 1, y + 1, z + 1),
-                new Vector3(x + 1, y, z + 1));
+                offset + new Vector3(0, 0, 0) * (float)cubeSize,
+                offset + new Vector3(1, 0, 0) * (float)cubeSize,
+                offset + new Vector3(1, 1, 0) * (float)cubeSize,
+                offset + new Vector3(0, 1, 0) * (float)cubeSize);
         }
 
-        if (x == 0 || (x > 0 && grid[x-1, y, z] == 0))
+        if (z == depth - 1 || (z < depth - 1 && grid[x, y, z + 1] == 0))
         {
             AddQuad(surfaceTool,
-                new Vector3(x, y, z + 1),
-                new Vector3(x, y, z),
-                new Vector3(x, y + 1, z),
-                new Vector3(x, y + 1, z + 1));
+                offset + new Vector3(0, 0, 1) * (float)cubeSize,
+                offset + new Vector3(0, 1, 1) * (float)cubeSize,
+                offset + new Vector3(1, 1, 1) * (float)cubeSize,
+                offset + new Vector3(1, 0, 1) * (float)cubeSize);
         }
 
-        if (x == width-1 || (x < width-1 && grid[x+1, y, z] == 0))
+        if (x == 0 || (x > 0 && grid[x - 1, y, z] == 0))
         {
             AddQuad(surfaceTool,
-                new Vector3(x + 1, y, z),
-                new Vector3(x + 1, y, z + 1),
-                new Vector3(x + 1, y + 1, z + 1),
-                new Vector3(x + 1, y + 1, z));
+                offset + new Vector3(0, 0, 1) * (float)cubeSize,
+                offset + new Vector3(0, 0, 0) * (float)cubeSize,
+                offset + new Vector3(0, 1, 0) * (float)cubeSize,
+                offset + new Vector3(0, 1, 1) * (float)cubeSize);
         }
 
-        if (y == height-1 || (y < height-1 && grid[x, y+1, z] == 0))
+        if (x == width - 1 || (x < width - 1 && grid[x + 1, y, z] == 0))
         {
             AddQuad(surfaceTool,
-                new Vector3(x, y + 1, z),
-                new Vector3(x + 1, y + 1, z),
-                new Vector3(x + 1, y + 1, z + 1),
-                new Vector3(x, y + 1, z + 1));
+                offset + new Vector3(1, 0, 0) * (float)cubeSize,
+                offset + new Vector3(1, 0, 1) * (float)cubeSize,
+                offset + new Vector3(1, 1, 1) * (float)cubeSize,
+                offset + new Vector3(1, 1, 0) * (float)cubeSize);
         }
 
-        if (y == 0 || (y > 0 && grid[x, y-1, z] == 0))
+        if (y == height - 1 || (y < height - 1 && grid[x, y + 1, z] == 0))
         {
             AddQuad(surfaceTool,
-                new Vector3(x, y, z),
-                new Vector3(x, y, z + 1),
-                new Vector3(x + 1, y, z + 1),
-                new Vector3(x + 1, y, z));
+                offset + new Vector3(0, 1, 0) * (float)cubeSize,
+                offset + new Vector3(1, 1, 0) * (float)cubeSize,
+                offset + new Vector3(1, 1, 1) * (float)cubeSize,
+                offset + new Vector3(0, 1, 1) * (float)cubeSize);
+        }
+
+        if (y == 0 || (y > 0 && grid[x, y - 1, z] == 0))
+        {
+            AddQuad(surfaceTool,
+                offset + new Vector3(0, 0, 0) * (float)cubeSize,
+                offset + new Vector3(0, 0, 1) * (float)cubeSize,
+                offset + new Vector3(1, 0, 1) * (float)cubeSize,
+                offset + new Vector3(1, 0, 0) * (float)cubeSize);
         }
     }
 
@@ -147,5 +164,25 @@ public partial class Generator : Node
         surfaceTool.AddVertex(v3);
         surfaceTool.SetUV(new Vector2(0, 1));
         surfaceTool.AddVertex(v4);
+    }
+
+    private bool IsValidPosition(int x, int y, int z)
+    {
+        return x >= 0 && x < grid.GetLength(0) && y >= 0 && y < grid.GetLength(1) && z >= 0 && z < grid.GetLength(2);
+    }
+
+    public bool IsBlockAt(Vector3 position)
+    {
+        Vector3 gridPosition = position * Resolution;
+        int x = Mathf.FloorToInt(gridPosition.X);
+        int y = Mathf.FloorToInt(gridPosition.Y);
+        int z = Mathf.FloorToInt(gridPosition.Z);
+        if (x >= 0 && x < grid.GetLength(0) &&
+            y >= 0 && y < grid.GetLength(1) &&
+            z >= 0 && z < grid.GetLength(2))
+        {
+            return grid[x, y, z] == 1;
+        }
+        return false;
     }
 }
