@@ -25,9 +25,9 @@ public partial class Generator : Node
             RemoveChild(child);
             child.QueueFree();
         }
-        int baseWidth = 128;
-        int baseDepth = 128;
-        int baseHeight = 20;
+        int baseWidth = 256;
+        int baseDepth = 256;
+        int baseHeight = 12;
         int width = baseWidth * Resolution;
         int depth = baseDepth * Resolution;
         int height = baseHeight * Resolution;
