@@ -16,7 +16,7 @@ public partial class PlayerController : CharacterBody3D
 
     public override void _Ready()
     {
-        // Adjust if your scene structure differs
+        // Adjust path if needed, depending on scene
         _generator = GetNode<Generator>("../Generator");
 
         _head = GetNode<Node3D>("Head");
@@ -53,12 +53,14 @@ public partial class PlayerController : CharacterBody3D
 
     public override void _PhysicsProcess(double delta)
     {
+        // If generator not ready, skip
         if (_generator == null || _generator.Chunks == null)
-            return; // If generator not ready, skip
+            return;
 
         UpdateHighlight();
 
-        // Movement using up/down/left/right
+        // Movement
+        // Using up/down for forward/back, left/right for strafing
         Vector2 inputDir = Input.GetVector("left", "right", "up", "down");
         Vector3 moveDir = (Transform.Basis * new Vector3(inputDir.X, 0, inputDir.Y)).Normalized() * Speed;
 
@@ -66,7 +68,7 @@ public partial class PlayerController : CharacterBody3D
         v.X = moveDir.X;
         v.Z = moveDir.Z;
 
-        // Basic vertical movement
+        // Vertical
         if (Input.IsActionPressed("jump"))
             v.Y = Speed;
         else if (Input.IsActionPressed("crouch"))
@@ -77,20 +79,25 @@ public partial class PlayerController : CharacterBody3D
         Velocity = v;
         MoveAndSlide();
 
-        // Block interaction
+        // Break / Place
         if (Input.IsActionJustPressed("break"))
             BreakBlock();
+
         if (Input.IsActionJustPressed("place"))
             PlaceBlock();
     }
 
+    /// <summary>
+    /// Raymarch to find a block within InteractionRange.
+    /// If found, store the highlight position & show highlightMesh.
+    /// </summary>
     private void UpdateHighlight()
     {
         Vector3 origin = _camera.GlobalTransform.Origin;
         Vector3 direction = -_camera.GlobalTransform.Basis.Z.Normalized();
 
         float dist = 0f;
-        const float step = 0.1f;
+        float step = 0.1f;
 
         _highlightMesh.Visible = false;
         _highlightedBlockPos = new Vector3I(-1, -1, -1);
@@ -104,6 +111,7 @@ public partial class PlayerController : CharacterBody3D
 
             if (_generator.GetBlock(bx, by, bz) == 1)
             {
+                // Found a block
                 _highlightMesh.Visible = true;
                 _highlightMesh.GlobalPosition = new Vector3(bx, by, bz);
                 _highlightedBlockPos = new Vector3I(bx, by, bz);
@@ -115,10 +123,17 @@ public partial class PlayerController : CharacterBody3D
 
     private void BreakBlock()
     {
+        // If there's no highlighted block, do nothing
         if (!_highlightMesh.Visible) return;
         if (_highlightedBlockPos.X < 0) return;
 
-        _generator.SetBlock(_highlightedBlockPos.X, _highlightedBlockPos.Y, _highlightedBlockPos.Z, 0);
+        // Remove it
+        _generator.SetBlock(
+            _highlightedBlockPos.X,
+            _highlightedBlockPos.Y,
+            _highlightedBlockPos.Z,
+            0
+        );
     }
 
     private void PlaceBlock()
@@ -126,40 +141,21 @@ public partial class PlayerController : CharacterBody3D
         if (!_highlightMesh.Visible) return;
         if (_highlightedBlockPos.X < 0) return;
 
-        // Calculate which side to place a new block on by choosing the dominant axis
-        Vector3 forward = -_camera.GlobalTransform.Basis.Z;
-        Vector3I offset = GetDominantAxisOffset(forward);
+        // Simple approach: pick sign of camera's forward direction in each axis
+        // so we place exactly on the side we're looking at, even if diagonal.
+        Vector3 forward = -_camera.GlobalTransform.Basis.Z.Normalized();
 
-        Vector3I placePos = _highlightedBlockPos + offset;
+        int offX = forward.X > 0.1f ? 1 : (forward.X < -0.1f ? -1 : 0);
+        int offY = forward.Y > 0.1f ? 1 : (forward.Y < -0.1f ? -1 : 0);
+        int offZ = forward.Z > 0.1f ? 1 : (forward.Z < -0.1f ? -1 : 0);
+
+        Vector3I placePos = new Vector3I(
+            _highlightedBlockPos.X + offX,
+            _highlightedBlockPos.Y + offY,
+            _highlightedBlockPos.Z + offZ
+        );
+
+        // Place a block at that position
         _generator.SetBlock(placePos.X, placePos.Y, placePos.Z, 1);
-    }
-
-    /// <summary>
-    /// Picks the dominant axis from 'forward' so that we place 
-    /// blocks on whichever axis is largest in magnitude.
-    /// e.g. if looking mostly up, place above, etc.
-    /// </summary>
-    private Vector3I GetDominantAxisOffset(Vector3 forward)
-    {
-        float absX = Mathf.Abs(forward.X);
-        float absY = Mathf.Abs(forward.Y);
-        float absZ = Mathf.Abs(forward.Z);
-
-        // Compare which axis is largest
-        if (absX > absY && absX > absZ)
-        {
-            // X is largest
-            return new Vector3I(forward.X > 0 ? 1 : -1, 0, 0);
-        }
-        else if (absY > absZ)
-        {
-            // Y is largest
-            return new Vector3I(0, forward.Y > 0 ? 1 : -1, 0);
-        }
-        else
-        {
-            // Z is largest
-            return new Vector3I(0, 0, forward.Z > 0 ? 1 : -1);
-        }
     }
 }
