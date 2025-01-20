@@ -14,6 +14,13 @@ transform = Transform3D(0.999999, 0.000824156, 0.000824534, -0.000825606, 0.9999
 script = ExtResource("1_iuglf")
 menu = NodePath("../Menu")
 
+[node name="Generator" type="Node" parent="."]
+process_thread_group = 2
+process_thread_group_order = 0
+process_thread_messages = 3
+script = ExtResource("3_d7wil")
+BlockTexture = ExtResource("4_g2n8g")
+
 [node name="Player" type="CharacterBody3D" parent="."]
 script = ExtResource("1_14cd5")
 
@@ -34,9 +41,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -49.0
-offset_top = -20.0
+offset_top = -37.5
 offset_right = 60.0
-offset_bottom = 11.0
+offset_bottom = 28.5
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -47,10 +54,3 @@ text = "RESUME"
 [node name="Exit" type="Button" parent="Menu"]
 layout_mode = 2
 text = "EXIT"
-
-[node name="Generator" type="Node" parent="."]
-process_thread_group = 2
-process_thread_group_order = 0
-process_thread_messages = 3
-script = ExtResource("3_d7wil")
-BlockTexture = ExtResource("4_g2n8g")
