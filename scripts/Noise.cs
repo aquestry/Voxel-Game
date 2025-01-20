@@ -5,16 +5,15 @@ namespace Noise
 {
    public class OpenSimplexNoise
     {
-        private const double STRETCH_2D = -0.211324865405187;    //(1/Math.sqrt(2+1)-1)/2;
-        private const double STRETCH_3D = -1.0 / 6.0;            //(1/Math.sqrt(3+1)-1)/3;
-        private const double STRETCH_4D = -0.138196601125011;    //(1/Math.sqrt(4+1)-1)/4;
-        private const double SQUISH_2D = 0.366025403784439;      //(Math.sqrt(2+1)-1)/2;
-        private const double SQUISH_3D = 1.0 / 3.0;              //(Math.sqrt(3+1)-1)/3;
-        private const double SQUISH_4D = 0.309016994374947;      //(Math.sqrt(4+1)-1)/4;
+        private const double STRETCH_2D = -0.211324865405187;
+        private const double STRETCH_3D = -1.0 / 6.0;
+        private const double STRETCH_4D = -0.138196601125011;
+        private const double SQUISH_2D = 0.366025403784439;
+        private const double SQUISH_3D = 1.0 / 3.0;
+        private const double SQUISH_4D = 0.309016994374947;
         private const double NORM_2D = 1.0 / 47.0;
         private const double NORM_3D = 1.0 / 103.0;
         private const double NORM_4D = 1.0 / 30.0;
-
         private byte[] perm;
         private byte[] perm2D;
         private byte[] perm3D;
@@ -26,38 +25,6 @@ namespace Noise
 		    -5,  2,   -2,  5,
 		     5, -2,    2, -5,
 		    -5, -2,   -2, -5,
-	    };
-
-        private static double[] gradients3D =
-        {
-		    -11,  4,  4,     -4,  11,  4,    -4,  4,  11,
-		     11,  4,  4,      4,  11,  4,     4,  4,  11,
-		    -11, -4,  4,     -4, -11,  4,    -4, -4,  11,
-		     11, -4,  4,      4, -11,  4,     4, -4,  11,
-		    -11,  4, -4,     -4,  11, -4,    -4,  4, -11,
-		     11,  4, -4,      4,  11, -4,     4,  4, -11,
-		    -11, -4, -4,     -4, -11, -4,    -4, -4, -11,
-		     11, -4, -4,      4, -11, -4,     4, -4, -11,
-	    };
-
-        private static double[] gradients4D =
-        {
-	         3,  1,  1,  1,      1,  3,  1,  1,      1,  1,  3,  1,      1,  1,  1,  3,
-	        -3,  1,  1,  1,     -1,  3,  1,  1,     -1,  1,  3,  1,     -1,  1,  1,  3,
-	         3, -1,  1,  1,      1, -3,  1,  1,      1, -1,  3,  1,      1, -1,  1,  3,
-	        -3, -1,  1,  1,     -1, -3,  1,  1,     -1, -1,  3,  1,     -1, -1,  1,  3,
-	         3,  1, -1,  1,      1,  3, -1,  1,      1,  1, -3,  1,      1,  1, -1,  3,
-	        -3,  1, -1,  1,     -1,  3, -1,  1,     -1,  1, -3,  1,     -1,  1, -1,  3,
-	         3, -1, -1,  1,      1, -3, -1,  1,      1, -1, -3,  1,      1, -1, -1,  3,
-	        -3, -1, -1,  1,     -1, -3, -1,  1,     -1, -1, -3,  1,     -1, -1, -1,  3,
-	         3,  1,  1, -1,      1,  3,  1, -1,      1,  1,  3, -1,      1,  1,  1, -3,
-	        -3,  1,  1, -1,     -1,  3,  1, -1,     -1,  1,  3, -1,     -1,  1,  1, -3,
-	         3, -1,  1, -1,      1, -3,  1, -1,      1, -1,  3, -1,      1, -1,  1, -3,
-	        -3, -1,  1, -1,     -1, -3,  1, -1,     -1, -1,  3, -1,     -1, -1,  1, -3,
-	         3,  1, -1, -1,      1,  3, -1, -1,      1,  1, -3, -1,      1,  1, -1, -3,
-	        -3,  1, -1, -1,     -1,  3, -1, -1,     -1,  1, -3, -1,     -1,  1, -1, -3,
-	         3, -1, -1, -1,      1, -3, -1, -1,      1, -1, -3, -1,      1, -1, -1, -3,
-	        -3, -1, -1, -1,     -1, -3, -1, -1,     -1, -1, -3, -1,     -1, -1, -1, -3,
 	    };
 
         private static Contribution2[] lookup2D;
@@ -73,7 +40,6 @@ namespace Noise
             };
             var p2D = new int[] { 0, 0, 1, -1, 0, 0, -1, 1, 0, 2, 1, 1, 1, 2, 2, 0, 1, 2, 0, 2, 1, 0, 0, 0 };
             var lookupPairs2D = new int[] { 0, 1, 1, 0, 4, 1, 17, 0, 20, 2, 21, 2, 22, 5, 23, 5, 26, 4, 39, 3, 42, 4, 43, 3 };
-
             var contributions2D = new Contribution2[p2D.Length / 4];
             for (int i = 0; i < p2D.Length; i += 4)
             {
@@ -94,14 +60,11 @@ namespace Noise
                 }
                 current.Next = new Contribution2(p2D[i + 1], p2D[i + 2], p2D[i + 3]);
             }
-
             lookup2D = new Contribution2[64];
             for (var i = 0; i < lookupPairs2D.Length; i += 2)
             {
                 lookup2D[lookupPairs2D[i]] = contributions2D[lookupPairs2D[i + 1]];
             }
-
-            
             var base3D = new int[][]
             {
                 new int[] { 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1 },
@@ -110,7 +73,6 @@ namespace Noise
             };
             var p3D = new int[] { 0, 0, 1, -1, 0, 0, 1, 0, -1, 0, 0, -1, 1, 0, 0, 0, 1, -1, 0, 0, -1, 0, 1, 0, 0, -1, 1, 0, 2, 1, 1, 0, 1, 1, 1, -1, 0, 2, 1, 0, 1, 1, 1, -1, 1, 0, 2, 0, 1, 1, 1, -1, 1, 1, 1, 3, 2, 1, 0, 3, 1, 2, 0, 1, 3, 2, 0, 1, 3, 1, 0, 2, 1, 3, 0, 2, 1, 3, 0, 1, 2, 1, 1, 1, 0, 0, 2, 2, 0, 0, 1, 1, 0, 1, 0, 2, 0, 2, 0, 1, 1, 0, 0, 1, 2, 0, 0, 2, 2, 0, 0, 0, 0, 1, 1, -1, 1, 2, 0, 0, 0, 0, 1, -1, 1, 1, 2, 0, 0, 0, 0, 1, 1, 1, -1, 2, 3, 1, 1, 1, 2, 0, 0, 2, 2, 3, 1, 1, 1, 2, 2, 0, 0, 2, 3, 1, 1, 1, 2, 0, 2, 0, 2, 1, 1, -1, 1, 2, 0, 0, 2, 2, 1, 1, -1, 1, 2, 2, 0, 0, 2, 1, -1, 1, 1, 2, 0, 0, 2, 2, 1, -1, 1, 1, 2, 0, 2, 0, 2, 1, 1, 1, -1, 2, 2, 0, 0, 2, 1, 1, 1, -1, 2, 0, 2, 0 };
             var lookupPairs3D = new int[] { 0, 2, 1, 1, 2, 2, 5, 1, 6, 0, 7, 0, 32, 2, 34, 2, 129, 1, 133, 1, 160, 5, 161, 5, 518, 0, 519, 0, 546, 4, 550, 4, 645, 3, 647, 3, 672, 5, 673, 5, 674, 4, 677, 3, 678, 4, 679, 3, 680, 13, 681, 13, 682, 12, 685, 14, 686, 12, 687, 14, 712, 20, 714, 18, 809, 21, 813, 23, 840, 20, 841, 21, 1198, 19, 1199, 22, 1226, 18, 1230, 19, 1325, 23, 1327, 22, 1352, 15, 1353, 17, 1354, 15, 1357, 17, 1358, 16, 1359, 16, 1360, 11, 1361, 10, 1362, 11, 1365, 10, 1366, 9, 1367, 9, 1392, 11, 1394, 11, 1489, 10, 1493, 10, 1520, 8, 1521, 8, 1878, 9, 1879, 9, 1906, 7, 1910, 7, 2005, 6, 2007, 6, 2032, 8, 2033, 8, 2034, 7, 2037, 6, 2038, 7, 2039, 6 };
-
             var contributions3D = new Contribution3[p3D.Length / 9];
             for (int i = 0; i < p3D.Length; i += 9)
             {
@@ -132,13 +94,11 @@ namespace Noise
                 current.Next = new Contribution3(p3D[i + 1], p3D[i + 2], p3D[i + 3], p3D[i + 4]);
                 current.Next.Next = new Contribution3(p3D[i + 5], p3D[i + 6], p3D[i + 7], p3D[i + 8]);
             }
-            
             lookup3D = new Contribution3[2048];
             for (var i = 0; i < lookupPairs3D.Length; i += 2)
             {
                 lookup3D[lookupPairs3D[i]] = contributions3D[lookupPairs3D[i + 1]];
             }
-
             var base4D = new int[][]
             {
                 new int[] { 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1 },
@@ -170,7 +130,6 @@ namespace Noise
                 current.Next.Next = new Contribution4(p4D[i + 6], p4D[i + 7], p4D[i + 8], p4D[i + 9], p4D[i + 10]);
                 current.Next.Next.Next = new Contribution4(p4D[i + 11], p4D[i + 12], p4D[i + 13], p4D[i + 14], p4D[i + 15]);
             }
-
             lookup4D = new Contribution4[1048576];
             for (var i = 0; i < lookupPairs4D.Length; i += 2)
             {
@@ -185,10 +144,7 @@ namespace Noise
             return x < xi ? xi - 1 : xi;
         }
 
-        public OpenSimplexNoise()
-            : this(DateTime.Now.Ticks)
-        {
-        }
+        public OpenSimplexNoise() : this(DateTime.Now.Ticks) {}
 
         public OpenSimplexNoise(long seed)
         {
@@ -225,27 +181,20 @@ namespace Noise
             var stretchOffset = (x + y) * STRETCH_2D;
             var xs = x + stretchOffset;
             var ys = y + stretchOffset;
-
             var xsb = FastFloor(xs);
             var ysb = FastFloor(ys);
-
             var squishOffset = (xsb + ysb) * SQUISH_2D;
             var dx0 = x - (xsb + squishOffset);
             var dy0 = y - (ysb + squishOffset);
-
             var xins = xs - xsb;
             var yins = ys - ysb;
-
             var inSum = xins + yins;
-
             var hash =
                (int)(xins - yins + 1) |
                (int)(inSum) << 1 |
                (int)(inSum + yins) << 2 |
                (int)(inSum + xins) << 4;
-
             var c = lookup2D[hash];
-
             var value = 0.0;
             while (c != null)
             {
@@ -256,142 +205,14 @@ namespace Noise
                 {
                     var px = xsb + c.xsb;
                     var py = ysb + c.ysb;
-
                     var i = perm2D[(perm[px & 0xFF] + py) & 0xFF];
                     var valuePart = gradients2D[i] * dx + gradients2D[i + 1] * dy;
-
                     attn *= attn;
                     value += attn * attn * valuePart;
                 }
                 c = c.Next;
             }
             return value * NORM_2D;
-        }
-
-        public double Evaluate(double x, double y, double z)
-        {
-            var stretchOffset = (x + y + z) * STRETCH_3D;
-            var xs = x + stretchOffset;
-            var ys = y + stretchOffset;
-            var zs = z + stretchOffset;
-
-            var xsb = FastFloor(xs);
-            var ysb = FastFloor(ys);
-            var zsb = FastFloor(zs);
-
-            var squishOffset = (xsb + ysb + zsb) * SQUISH_3D;
-            var dx0 = x - (xsb + squishOffset);
-            var dy0 = y - (ysb + squishOffset);
-            var dz0 = z - (zsb + squishOffset);
-
-            var xins = xs - xsb;
-            var yins = ys - ysb;
-            var zins = zs - zsb;
-
-            var inSum = xins + yins + zins;
-
-            var hash =
-               (int)(yins - zins + 1) |
-               (int)(xins - yins + 1) << 1 |
-               (int)(xins - zins + 1) << 2 |
-               (int)inSum << 3 |
-               (int)(inSum + zins) << 5 |
-               (int)(inSum + yins) << 7 |
-               (int)(inSum + xins) << 9;
-
-            var c = lookup3D[hash];
-
-            var value = 0.0;
-            while (c != null)
-            {
-                var dx = dx0 + c.dx;
-                var dy = dy0 + c.dy;
-                var dz = dz0 + c.dz;
-                var attn = 2 - dx * dx - dy * dy - dz * dz;
-                if (attn > 0)
-                {
-                    var px = xsb + c.xsb;
-                    var py = ysb + c.ysb;
-                    var pz = zsb + c.zsb;
-
-                    var i = perm3D[(perm[(perm[px & 0xFF] + py) & 0xFF] + pz) & 0xFF];
-                    var valuePart = gradients3D[i] * dx + gradients3D[i + 1] * dy + gradients3D[i + 2] * dz;
-
-                    attn *= attn;
-                    value += attn * attn * valuePart;
-                }
-
-                c = c.Next;
-            }
-            return value * NORM_3D;
-        }
-
-        public double Evaluate(double x, double y, double z, double w)
-        {
-            var stretchOffset = (x + y + z + w) * STRETCH_4D;
-            var xs = x + stretchOffset;
-            var ys = y + stretchOffset;
-            var zs = z + stretchOffset;
-            var ws = w + stretchOffset;
-
-            var xsb = FastFloor(xs);
-            var ysb = FastFloor(ys);
-            var zsb = FastFloor(zs);
-            var wsb = FastFloor(ws);
-
-            var squishOffset = (xsb + ysb + zsb + wsb) * SQUISH_4D;
-            var dx0 = x - (xsb + squishOffset);
-            var dy0 = y - (ysb + squishOffset);
-            var dz0 = z - (zsb + squishOffset);
-            var dw0 = w - (wsb + squishOffset);
-
-            var xins = xs - xsb;
-            var yins = ys - ysb;
-            var zins = zs - zsb;
-            var wins = ws - wsb;
-
-            var inSum = xins + yins + zins + wins;
-
-            var hash =
-                (int)(zins - wins + 1) |
-                (int)(yins - zins + 1) << 1 |
-                (int)(yins - wins + 1) << 2 |
-                (int)(xins - yins + 1) << 3 |
-                (int)(xins - zins + 1) << 4 |
-                (int)(xins - wins + 1) << 5 |
-                (int)inSum << 6 |
-                (int)(inSum + wins) << 8 |
-                (int)(inSum + zins) << 11 |
-                (int)(inSum + yins) << 14 |
-                (int)(inSum + xins) << 17;
-            
-            var c = lookup4D[hash];
-
-            var value = 0.0;
-            while (c != null)
-            {
-                var dx = dx0 + c.dx;
-                var dy = dy0 + c.dy;
-                var dz = dz0 + c.dz;
-                var dw = dw0 + c.dw;
-                var attn = 2 - dx * dx - dy * dy - dz * dz - dw * dw;
-                if (attn > 0)
-                {
-                    var px = xsb + c.xsb;
-                    var py = ysb + c.ysb;
-                    var pz = zsb + c.zsb;
-                    var pw = wsb + c.wsb;
-
-                    var i = perm4D[(perm[(perm[(perm[px & 0xFF] + py) & 0xFF] + pz) & 0xFF] + pw) & 0xFF];
-                    var valuePart = gradients4D[i] * dx + gradients4D[i + 1] * dy + gradients4D[i + 2] * dz + gradients4D[i + 3] * dw;
-
-                    attn *= attn;
-                    value += attn * attn * valuePart;
-                }
-
-                c = c.Next;
-            }
-            return value * NORM_4D;
         }
 
         private class Contribution2

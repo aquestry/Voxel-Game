@@ -52,12 +52,3 @@ text = "EXIT"
 script = ExtResource("3_d7wil")
 Resolution = 2
 BlockTexture = ExtResource("4_g2n8g")
-
-[node name="SpotLight3D" type="SpotLight3D" parent="."]
-transform = Transform3D(1, -5.90717e-10, -2.32831e-10, 1.65073e-10, 1, 3.49246e-10, 0, 0, 1, -130.838, 341.199, -182.251)
-light_energy = 106.62
-light_indirect_energy = 16.0
-shadow_enabled = true
-spot_range = 27.355
-spot_attenuation = 99.75
-spot_angle = 72.65

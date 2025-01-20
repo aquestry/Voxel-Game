@@ -32,7 +32,7 @@ public partial class PlayerController : CharacterBody3D
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (@event is InputEventMouseMotion mouseMotion)
+        if (@event is InputEventMouseMotion mouseMotion && !_manager.paused)
         {
             RotateY(-mouseMotion.Relative.X * MouseSensitivity * 0.001f);
             _head.RotateObjectLocal(Vector3.Right, -mouseMotion.Relative.Y * MouseSensitivity * 0.001f);
