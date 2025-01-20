@@ -3,62 +3,59 @@ using System;
 
 public partial class Chunk : Node3D
 {
-    public int[,,] blocks;              // Stores block data (1 = block, 0 = empty)
-    private Generator _generator;       // Reference to the main Generator
+    public int[,,] blocks;      // 1 = block, 0 = empty
+    private Generator _generator;
     private int _chunkX, _chunkY, _chunkZ;
 
     /// <summary>
-    /// Called from Generator to initialize the chunk’s data.
+    /// Called by Generator after creating the chunk node.
+    /// This sets up references but does NOT build the mesh yet.
     /// </summary>
-    public void Initialize(Generator gen, int cx, int cy, int cz)
+    public void Initialize(Generator generator, int cx, int cy, int cz)
     {
-        _generator = gen;
+        _generator = generator;
         _chunkX = cx;
         _chunkY = cy;
         _chunkZ = cz;
 
+        // Allocate the block array
         blocks = new int[_generator.ChunkSize, _generator.ChunkSize, _generator.ChunkSize];
-
-        // Example: fill with simple noise-based terrain
-        GenerateTerrain();
-        RebuildMesh();
     }
 
     /// <summary>
-    /// Generate some noise-based terrain for this chunk.
-    /// You can customize further as you like.
+    /// Generate the terrain data for this chunk. 
+    /// Called by the Generator in a separate pass so all chunks are generated before any are meshed.
     /// </summary>
-    private void GenerateTerrain()
+    public void GenerateData()
     {
+        // Example: use noise to fill in blocks up to a certain height
         for (int localX = 0; localX < _generator.ChunkSize; localX++)
         {
             for (int localZ = 0; localZ < _generator.ChunkSize; localZ++)
             {
-                // Convert chunk-local coords to world coords
                 int worldX = _chunkX * _generator.ChunkSize + localX;
                 int worldZ = _chunkZ * _generator.ChunkSize + localZ;
 
                 // Evaluate noise at (worldX, worldZ)
-                double noiseValue = _generator.noise.Evaluate(
-                    worldX * _generator.NoiseScale,
+                double noiseVal = _generator.noise.Evaluate(
+                    worldX * _generator.NoiseScale, 
                     worldZ * _generator.NoiseScale
                 );
+                // noiseVal is in [-1..1], map to 0..1
+                noiseVal = (noiseVal + 1.0) * 0.5;
 
-                // noiseValue is [-1..1], so remap to 0..1
-                noiseValue = (noiseValue + 1.0) * 0.5;
-
-                // Convert to a "maxY" in world coordinates
+                // Max block height in world coords
                 int maxY = Mathf.FloorToInt(
-                    (float)(noiseValue * (_generator.ChunkSize * _generator.WorldHeightInChunks - 1))
+                    (float)(noiseVal * (_generator.ChunkSize * _generator.WorldHeightInChunks - 1))
                 );
 
-                // Populate blocks
+                // Fill blocks up to maxY
                 for (int localY = 0; localY < _generator.ChunkSize; localY++)
                 {
                     int worldY = _chunkY * _generator.ChunkSize + localY;
                     if (worldY <= maxY)
                     {
-                        blocks[localX, localY, localZ] = 1; // 1 means there's a block
+                        blocks[localX, localY, localZ] = 1;
                     }
                 }
             }
@@ -66,17 +63,19 @@ public partial class Chunk : Node3D
     }
 
     /// <summary>
-    /// Rebuild the mesh for this chunk based on the 'blocks' array.
+    /// Rebuild the mesh based on the blocks[] array and neighbors.
+    /// Called after data generation, or after a player changes a block.
     /// </summary>
     public void RebuildMesh()
     {
-        // Clear out old mesh children
+        // Remove old mesh children
         foreach (Node child in GetChildren())
         {
             RemoveChild(child);
             child.QueueFree();
         }
 
+        // Start building
         var st = new SurfaceTool();
         st.Begin(Mesh.PrimitiveType.Triangles);
 
@@ -110,25 +109,25 @@ public partial class Chunk : Node3D
         AddChild(meshInstance);
     }
 
-    /// <summary>
-    /// Checks adjacent blocks. If neighbor is 0, draw that face.
-    /// </summary>
-    private void AddVisibleFaces(SurfaceTool st, int x, int y, int z)
+    private void AddVisibleFaces(SurfaceTool st, int lx, int ly, int lz)
     {
-        int worldX = _chunkX * _generator.ChunkSize + x;
-        int worldY = _chunkY * _generator.ChunkSize + y;
-        int worldZ = _chunkZ * _generator.ChunkSize + z;
+        // Convert from local chunk coords to global block coords
+        int worldX = _chunkX * _generator.ChunkSize + lx;
+        int worldY = _chunkY * _generator.ChunkSize + ly;
+        int worldZ = _chunkZ * _generator.ChunkSize + lz;
 
-        Vector3 o = new Vector3(x, y, z);
+        Vector3 offset = new Vector3(lx, ly, lz);
+
+        // If neighbor is 0 => face is visible
 
         // Z- face
         if (_generator.GetBlock(worldX, worldY, worldZ - 1) == 0)
         {
             AddQuad(st,
-                o + new Vector3(0, 0, 0),
-                o + new Vector3(1, 0, 0),
-                o + new Vector3(1, 1, 0),
-                o + new Vector3(0, 1, 0)
+                offset + new Vector3(0, 0, 0),
+                offset + new Vector3(1, 0, 0),
+                offset + new Vector3(1, 1, 0),
+                offset + new Vector3(0, 1, 0)
             );
         }
 
@@ -136,10 +135,10 @@ public partial class Chunk : Node3D
         if (_generator.GetBlock(worldX, worldY, worldZ + 1) == 0)
         {
             AddQuad(st,
-                o + new Vector3(0, 0, 1),
-                o + new Vector3(0, 1, 1),
-                o + new Vector3(1, 1, 1),
-                o + new Vector3(1, 0, 1)
+                offset + new Vector3(0, 0, 1),
+                offset + new Vector3(0, 1, 1),
+                offset + new Vector3(1, 1, 1),
+                offset + new Vector3(1, 0, 1)
             );
         }
 
@@ -147,10 +146,10 @@ public partial class Chunk : Node3D
         if (_generator.GetBlock(worldX - 1, worldY, worldZ) == 0)
         {
             AddQuad(st,
-                o + new Vector3(0, 0, 1),
-                o + new Vector3(0, 0, 0),
-                o + new Vector3(0, 1, 0),
-                o + new Vector3(0, 1, 1)
+                offset + new Vector3(0, 0, 1),
+                offset + new Vector3(0, 0, 0),
+                offset + new Vector3(0, 1, 0),
+                offset + new Vector3(0, 1, 1)
             );
         }
 
@@ -158,10 +157,10 @@ public partial class Chunk : Node3D
         if (_generator.GetBlock(worldX + 1, worldY, worldZ) == 0)
         {
             AddQuad(st,
-                o + new Vector3(1, 0, 0),
-                o + new Vector3(1, 0, 1),
-                o + new Vector3(1, 1, 1),
-                o + new Vector3(1, 1, 0)
+                offset + new Vector3(1, 0, 0),
+                offset + new Vector3(1, 0, 1),
+                offset + new Vector3(1, 1, 1),
+                offset + new Vector3(1, 1, 0)
             );
         }
 
@@ -169,10 +168,10 @@ public partial class Chunk : Node3D
         if (_generator.GetBlock(worldX, worldY + 1, worldZ) == 0)
         {
             AddQuad(st,
-                o + new Vector3(0, 1, 0),
-                o + new Vector3(1, 1, 0),
-                o + new Vector3(1, 1, 1),
-                o + new Vector3(0, 1, 1)
+                offset + new Vector3(0, 1, 0),
+                offset + new Vector3(1, 1, 0),
+                offset + new Vector3(1, 1, 1),
+                offset + new Vector3(0, 1, 1)
             );
         }
 
@@ -180,17 +179,14 @@ public partial class Chunk : Node3D
         if (_generator.GetBlock(worldX, worldY - 1, worldZ) == 0)
         {
             AddQuad(st,
-                o + new Vector3(0, 0, 0),
-                o + new Vector3(0, 0, 1),
-                o + new Vector3(1, 0, 1),
-                o + new Vector3(1, 0, 0)
+                offset + new Vector3(0, 0, 0),
+                offset + new Vector3(0, 0, 1),
+                offset + new Vector3(1, 0, 1),
+                offset + new Vector3(1, 0, 0)
             );
         }
     }
 
-    /// <summary>
-    /// Helper to add a quad (2 triangles) to the mesh.
-    /// </summary>
     private void AddQuad(SurfaceTool st, Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4)
     {
         // Triangle #1

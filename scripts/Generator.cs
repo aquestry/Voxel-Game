@@ -1,65 +1,73 @@
 using Godot;
 using System;
-using Noise; // IMPORTANT: This references your existing noise.cs
+using Noise; // Using your noise.cs namespace
 
 public partial class Generator : Node
 {
-    [Export] public int ChunkSize = 16;                    // Each chunk’s dimensions: 16x16x16
-    [Export] public int WorldWidthInChunks = 4;            // How many chunks along X
-    [Export] public int WorldHeightInChunks = 2;           // How many chunks along Y
-    [Export] public int WorldDepthInChunks = 4;            // How many chunks along Z
+    [Export] public int ChunkSize = 16;
+    [Export] public int WorldWidthInChunks = 4;
+    [Export] public int WorldHeightInChunks = 2;
+    [Export] public int WorldDepthInChunks = 4;
 
-    [Export] public CompressedTexture2D BlockTexture;       // Your block texture
-    [Export] public float NoiseScale = 0.1f;                // Adjust for terrain variation
+    [Export] public CompressedTexture2D BlockTexture;
+    [Export] public float NoiseScale = 0.1f;
 
-    public OpenSimplexNoise noise;                          // The noise instance (from noise.cs)
-    public Chunk[,,] Chunks;                                // 3D array of Chunk references
+    public OpenSimplexNoise noise;
+    public Chunk[,,] Chunks; // 3D array of chunk references
 
     public override void _Ready()
     {
-        // Initialize the noise
-        noise = new OpenSimplexNoise(); // or new OpenSimplexNoise(DateTime.Now.Ticks)
-        // Optionally tweak properties if you want:
-        // noise.Octaves = ...
-        // noise.Seed = ...
-        // noise.Period = ...
-        // noise.Persistence = ...
+        // 1) Create and seed the noise
+        noise = new OpenSimplexNoise();
+        // Optionally tweak or set your own seed, etc.
 
-        // Create chunk array
+        // 2) Allocate the chunk array
         Chunks = new Chunk[WorldWidthInChunks, WorldHeightInChunks, WorldDepthInChunks];
 
-        // Instantiate each chunk
+        // 3) Instantiate all chunk nodes (but do NOT build their mesh yet)
         for (int cx = 0; cx < WorldWidthInChunks; cx++)
         {
             for (int cy = 0; cy < WorldHeightInChunks; cy++)
             {
                 for (int cz = 0; cz < WorldDepthInChunks; cz++)
                 {
-                    // Create a new Chunk node
                     var chunk = new Chunk();
-
-                    // Add it as a child so it's in the scene
                     AddChild(chunk);
-
-                    // Move chunk to correct position in world space
                     chunk.GlobalPosition = new Vector3(cx * ChunkSize, cy * ChunkSize, cz * ChunkSize);
-
-                    // Initialize chunk data
                     chunk.Initialize(this, cx, cy, cz);
-
-                    // Store reference
                     Chunks[cx, cy, cz] = chunk;
+                }
+            }
+        }
+
+        // 4) Generate data for all chunks (so neighbors see correct blocks)
+        for (int cx = 0; cx < WorldWidthInChunks; cx++)
+        {
+            for (int cy = 0; cy < WorldHeightInChunks; cy++)
+            {
+                for (int cz = 0; cz < WorldDepthInChunks; cz++)
+                {
+                    Chunks[cx, cy, cz].GenerateData();
+                }
+            }
+        }
+
+        // 5) Now rebuild all chunk meshes once the data is complete
+        for (int cx = 0; cx < WorldWidthInChunks; cx++)
+        {
+            for (int cy = 0; cy < WorldHeightInChunks; cy++)
+            {
+                for (int cz = 0; cz < WorldDepthInChunks; cz++)
+                {
+                    Chunks[cx, cy, cz].RebuildMesh();
                 }
             }
         }
     }
 
-    /// <summary>
-    /// Returns block value at world coordinates (x,y,z). 1 = block, 0 = empty.
-    /// </summary>
     public int GetBlock(int x, int y, int z)
     {
-        // Check overall bounds
+        // Out of world bounds -> 0
         if (x < 0 || y < 0 || z < 0) return 0;
         int maxX = WorldWidthInChunks * ChunkSize;
         int maxY = WorldHeightInChunks * ChunkSize;
@@ -71,19 +79,18 @@ public partial class Generator : Node
         int cy = y / ChunkSize;
         int cz = z / ChunkSize;
 
-        Chunk c = Chunks[cx, cy, cz];
-        if (c == null) return 0; // should never happen if fully generated
+        var c = Chunks[cx, cy, cz];
+        if (c == null) return 0; // Should never happen if everything is loaded
 
-        // Local coords inside that chunk
+        // Local coords
         int lx = x % ChunkSize;
         int ly = y % ChunkSize;
         int lz = z % ChunkSize;
-
         return c.blocks[lx, ly, lz];
     }
 
     /// <summary>
-    /// Sets block at world coords (x,y,z) to 'value' (1 or 0), then rebuilds chunk & neighbors if needed.
+    /// Sets block at (x,y,z) to 'value' (1 or 0), and rebuilds chunk + neighbors if needed.
     /// </summary>
     public void SetBlock(int x, int y, int z, int value)
     {
@@ -94,42 +101,37 @@ public partial class Generator : Node
         int maxZ = WorldDepthInChunks * ChunkSize;
         if (x >= maxX || y >= maxY || z >= maxZ) return;
 
+        // Which chunk?
         int cx = x / ChunkSize;
         int cy = y / ChunkSize;
         int cz = z / ChunkSize;
-        Chunk chunk = Chunks[cx, cy, cz];
+        var chunk = Chunks[cx, cy, cz];
         if (chunk == null) return;
 
+        // Local coords in chunk
         int lx = x % ChunkSize;
         int ly = y % ChunkSize;
         int lz = z % ChunkSize;
 
-        // Set the block data
+        // Set the data
         chunk.blocks[lx, ly, lz] = value;
 
         // Rebuild this chunk
         chunk.RebuildMesh();
 
-        // If we changed a face on the edge, we might need to rebuild adjacent chunks:
-        if (lx == 0 && cx > 0)
-            Chunks[cx - 1, cy, cz]?.RebuildMesh();
-        if (lx == ChunkSize - 1 && cx < WorldWidthInChunks - 1)
-            Chunks[cx + 1, cy, cz]?.RebuildMesh();
+        // Possibly rebuild neighbors if we changed a face on the boundary
+        if (lx == 0 && cx > 0) Chunks[cx - 1, cy, cz]?.RebuildMesh();
+        if (lx == ChunkSize - 1 && cx < WorldWidthInChunks - 1) Chunks[cx + 1, cy, cz]?.RebuildMesh();
 
-        if (ly == 0 && cy > 0)
-            Chunks[cx, cy - 1, cz]?.RebuildMesh();
-        if (ly == ChunkSize - 1 && cy < WorldHeightInChunks - 1)
-            Chunks[cx, cy + 1, cz]?.RebuildMesh();
+        if (ly == 0 && cy > 0) Chunks[cx, cy - 1, cz]?.RebuildMesh();
+        if (ly == ChunkSize - 1 && cy < WorldHeightInChunks - 1) Chunks[cx, cy + 1, cz]?.RebuildMesh();
 
-        if (lz == 0 && cz > 0)
-            Chunks[cx, cy, cz - 1]?.RebuildMesh();
-        if (lz == ChunkSize - 1 && cz < WorldDepthInChunks - 1)
-            Chunks[cx, cy, cz + 1]?.RebuildMesh();
+        if (lz == 0 && cz > 0) Chunks[cx, cy, cz - 1]?.RebuildMesh();
+        if (lz == ChunkSize - 1 && cz < WorldDepthInChunks - 1) Chunks[cx, cy, cz + 1]?.RebuildMesh();
     }
 
     /// <summary>
-    /// Quick helper used by the player for highlight checks.
-    /// Returns true if there's a block at the float position.
+    /// Used by player highlight logic. True if block is present at 'pos'.
     /// </summary>
     public bool IsBlockAt(Vector3 pos)
     {
