@@ -4,8 +4,8 @@ public partial class PlayerController : CharacterBody3D
 {
 
     [Export] public float MouseSensitivity = 0.5f;
-    [Export] public float InteractionRange = 10f;
-    [Export] public float Speed = 10f;
+    public float InteractionRange = 100f;
+    public float Speed = 15f;
     private Node3D _head;
     private Camera3D _camera;
     private Generator _generator;
