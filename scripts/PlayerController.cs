@@ -10,9 +10,10 @@ public partial class PlayerController : CharacterBody3D
     private Node3D _head;
     private Camera3D _camera;
     private Generator _generator;
-
     private MeshInstance3D _highlightMesh;
     private Vector3I _highlightedBlockPos = new Vector3I(-1, -1, -1);
+    private Vector3I _placeBlockPos = new Vector3I(-1, -1, -1);
+
 
     public override void _Ready()
     {
@@ -87,21 +88,23 @@ public partial class PlayerController : CharacterBody3D
             PlaceBlock();
     }
 
-    /// <summary>
-    /// Raymarch to find a block within InteractionRange.
-    /// If found, store the highlight position & show highlightMesh.
-    /// </summary>
     private void UpdateHighlight()
     {
         Vector3 origin = _camera.GlobalTransform.Origin;
         Vector3 direction = -_camera.GlobalTransform.Basis.Z.Normalized();
 
         float dist = 0f;
-        float step = 0.1f;
+        const float step = 0.1f;
 
+        // Default: no highlight, no place
         _highlightMesh.Visible = false;
         _highlightedBlockPos = new Vector3I(-1, -1, -1);
+        _placeBlockPos = new Vector3I(-1, -1, -1);
 
+        // We'll store the last empty coordinate we encountered
+        Vector3I lastEmptyPos = new Vector3I(-1, -1, -1);
+
+        // Raymarch
         while (dist < InteractionRange)
         {
             Vector3 checkPos = origin + direction * dist;
@@ -111,15 +114,25 @@ public partial class PlayerController : CharacterBody3D
 
             if (_generator.GetBlock(bx, by, bz) == 1)
             {
-                // Found a block
+                // Found a block => highlight it
                 _highlightMesh.Visible = true;
                 _highlightMesh.GlobalPosition = new Vector3(bx, by, bz);
                 _highlightedBlockPos = new Vector3I(bx, by, bz);
+
+                // The "place" position is the last empty coordinate we encountered
+                _placeBlockPos = lastEmptyPos;
                 return;
             }
+            else
+            {
+                // This coordinate is empty, so remember it as the last empty
+                lastEmptyPos = new Vector3I(bx, by, bz);
+            }
+
             dist += step;
         }
     }
+
 
     private void BreakBlock()
     {
@@ -138,24 +151,41 @@ public partial class PlayerController : CharacterBody3D
 
     private void PlaceBlock()
     {
-        if (!_highlightMesh.Visible) return;
-        if (_highlightedBlockPos.X < 0) return;
+        if (!_highlightMesh.Visible) return;         // No highlighted block
+        if (_highlightedBlockPos.X < 0) return;      // Highlight invalid
+        if (_placeBlockPos.X < 0) return;            // No valid place position
 
-        // Simple approach: pick sign of camera's forward direction in each axis
-        // so we place exactly on the side we're looking at, even if diagonal.
-        Vector3 forward = -_camera.GlobalTransform.Basis.Z.Normalized();
+        GD.Print($"[PlaceBlock] placing new block at {_placeBlockPos}");
+        _generator.SetBlock(_placeBlockPos.X, _placeBlockPos.Y, _placeBlockPos.Z, 1);
+    }
 
-        int offX = forward.X > 0.1f ? 1 : (forward.X < -0.1f ? -1 : 0);
-        int offY = forward.Y > 0.1f ? 1 : (forward.Y < -0.1f ? -1 : 0);
-        int offZ = forward.Z > 0.1f ? 1 : (forward.Z < -0.1f ? -1 : 0);
 
-        Vector3I placePos = new Vector3I(
-            _highlightedBlockPos.X + offX,
-            _highlightedBlockPos.Y + offY,
-            _highlightedBlockPos.Z + offZ
-        );
+    /// <summary>
+    /// Returns an offset of (±1,0,0), (0,±1,0), or (0,0,±1)
+    /// depending on which axis has the greatest absolute value in 'direction'.
+    /// This prevents overwriting the same block if direction is diagonal.
+    /// </summary>
+    private Vector3I GetDominantAxisOffset(Vector3 direction)
+    {
+        float absX = Mathf.Abs(direction.X);
+        float absY = Mathf.Abs(direction.Y);
+        float absZ = Mathf.Abs(direction.Z);
 
-        // Place a block at that position
-        _generator.SetBlock(placePos.X, placePos.Y, placePos.Z, 1);
+        // Whichever axis is largest => place there
+        if (absX >= absY && absX >= absZ)
+        {
+            // X axis is dominant
+            return new Vector3I(direction.X > 0 ? 1 : -1, 0, 0);
+        }
+        else if (absY >= absZ)
+        {
+            // Y axis is dominant
+            return new Vector3I(0, direction.Y > 0 ? 1 : -1, 0);
+        }
+        else
+        {
+            // Z axis is dominant
+            return new Vector3I(0, 0, direction.Z > 0 ? 1 : -1);
+        }
     }
 }

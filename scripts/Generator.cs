@@ -94,41 +94,128 @@ public partial class Generator : Node
     /// </summary>
     public void SetBlock(int x, int y, int z, int value)
     {
-        // Bounds check
-        if (x < 0 || y < 0 || z < 0) return;
+        GD.Print($"[SetBlock] CALLED => coords=({x}, {y}, {z}), value={value}");
+
+        // 1) Check world bounds
+        if (x < 0 || y < 0 || z < 0)
+        {
+            GD.Print($"[SetBlock] ABORT => coords negative => ({x},{y},{z})");
+            return;
+        }
         int maxX = WorldWidthInChunks * ChunkSize;
         int maxY = WorldHeightInChunks * ChunkSize;
         int maxZ = WorldDepthInChunks * ChunkSize;
-        if (x >= maxX || y >= maxY || z >= maxZ) return;
+        if (x >= maxX || y >= maxY || z >= maxZ)
+        {
+            GD.Print($"[SetBlock] ABORT => coords out of max bounds => " +
+                     $"({x},{y},{z}) / max=({maxX},{maxY},{maxZ})");
+            return;
+        }
 
-        // Which chunk?
+        // 2) Chunk coords
         int cx = x / ChunkSize;
         int cy = y / ChunkSize;
         int cz = z / ChunkSize;
-        var chunk = Chunks[cx, cy, cz];
-        if (chunk == null) return;
 
-        // Local coords in chunk
+        // 3) Check chunk array
+        if (Chunks == null)
+        {
+            GD.Print("[SetBlock] ABORT => Chunks array is null");
+            return;
+        }
+
+        var chunk = Chunks[cx, cy, cz];
+        if (chunk == null)
+        {
+            GD.Print($"[SetBlock] ABORT => chunk (cx={cx},cy={cy},cz={cz}) is null");
+            return;
+        }
+
+        // 4) Local coords
         int lx = x % ChunkSize;
         int ly = y % ChunkSize;
         int lz = z % ChunkSize;
+        GD.Print($"[SetBlock] => chunk=({cx},{cy},{cz}), local=({lx},{ly},{lz}), newValue={value}");
 
-        // Set the data
+        // 5) Check old value
+        int oldValue = chunk.blocks[lx, ly, lz];
+        GD.Print($"[SetBlock] oldValue={oldValue}");
+
+        // If no actual change, short-circuit
+        if (oldValue == value)
+        {
+            GD.Print("[SetBlock] No change => block was already that value => ABORT");
+            return;
+        }
+
+        // 6) Update block data
         chunk.blocks[lx, ly, lz] = value;
 
-        // Rebuild this chunk
+        // 7) Rebuild main chunk
         chunk.RebuildMesh();
+        GD.Print($"[SetBlock] Rebuilt chunk=({cx},{cy},{cz}) => oldValue={oldValue}, newValue={value}");
 
-        // Possibly rebuild neighbors if we changed a face on the boundary
-        if (lx == 0 && cx > 0) Chunks[cx - 1, cy, cz]?.RebuildMesh();
-        if (lx == ChunkSize - 1 && cx < WorldWidthInChunks - 1) Chunks[cx + 1, cy, cz]?.RebuildMesh();
+        // 8) If we changed a face on chunk's boundary => rebuild neighbors
+        if (lx == 0 && cx > 0)
+        {
+            var neighbor = Chunks[cx - 1, cy, cz];
+            if (neighbor != null)
+            {
+                neighbor.RebuildMesh();
+                GD.Print($"[SetBlock] Rebuilt neighbor chunk=({cx - 1},{cy},{cz})");
+            }
+        }
+        if (lx == ChunkSize - 1 && cx < WorldWidthInChunks - 1)
+        {
+            var neighbor = Chunks[cx + 1, cy, cz];
+            if (neighbor != null)
+            {
+                neighbor.RebuildMesh();
+                GD.Print($"[SetBlock] Rebuilt neighbor chunk=({cx + 1},{cy},{cz})");
+            }
+        }
 
-        if (ly == 0 && cy > 0) Chunks[cx, cy - 1, cz]?.RebuildMesh();
-        if (ly == ChunkSize - 1 && cy < WorldHeightInChunks - 1) Chunks[cx, cy + 1, cz]?.RebuildMesh();
+        if (ly == 0 && cy > 0)
+        {
+            var neighbor = Chunks[cx, cy - 1, cz];
+            if (neighbor != null)
+            {
+                neighbor.RebuildMesh();
+                GD.Print($"[SetBlock] Rebuilt neighbor chunk=({cx},{cy - 1},{cz})");
+            }
+        }
+        if (ly == ChunkSize - 1 && cy < WorldHeightInChunks - 1)
+        {
+            var neighbor = Chunks[cx, cy + 1, cz];
+            if (neighbor != null)
+            {
+                neighbor.RebuildMesh();
+                GD.Print($"[SetBlock] Rebuilt neighbor chunk=({cx},{cy + 1},{cz})");
+            }
+        }
 
-        if (lz == 0 && cz > 0) Chunks[cx, cy, cz - 1]?.RebuildMesh();
-        if (lz == ChunkSize - 1 && cz < WorldDepthInChunks - 1) Chunks[cx, cy, cz + 1]?.RebuildMesh();
+        if (lz == 0 && cz > 0)
+        {
+            var neighbor = Chunks[cx, cy, cz - 1];
+            if (neighbor != null)
+            {
+                neighbor.RebuildMesh();
+                GD.Print($"[SetBlock] Rebuilt neighbor chunk=({cx},{cy},{cz - 1})");
+            }
+        }
+        if (lz == ChunkSize - 1 && cz < WorldDepthInChunks - 1)
+        {
+            var neighbor = Chunks[cx, cy, cz + 1];
+            if (neighbor != null)
+            {
+                neighbor.RebuildMesh();
+                GD.Print($"[SetBlock] Rebuilt neighbor chunk=({cx},{cy},{cz + 1})");
+            }
+        }
+
+        GD.Print("[SetBlock] Done.");
     }
+
 
     /// <summary>
     /// Used by player highlight logic. True if block is present at 'pos'.
