@@ -5,6 +5,7 @@ public partial class Generator : Node
 {
     private OpenSimplexNoise noise;
     private int[,,] grid;
+    private double cubeSize;
 
     [Export]
     public int Resolution { get; set; } = 1;
@@ -24,21 +25,17 @@ public partial class Generator : Node
             RemoveChild(child);
             child.QueueFree();
         }
-
         int baseWidth = 128;
         int baseDepth = 128;
         int baseHeight = 20;
-
         int width = baseWidth * Resolution;
         int depth = baseDepth * Resolution;
         int height = baseHeight * Resolution;
-
-        double cubeSize = 1.0 / Resolution;
-
+        cubeSize = 1.0 / Resolution;
         noise = new OpenSimplexNoise();
         grid = new int[width, height, depth];
         GenerateTerrain(width, depth, height, 0.1 / Resolution);
-        CreateMesh(width, depth, height, cubeSize);
+        CreateMesh(width, depth, height);
     }
 
     private void GenerateTerrain(int width, int depth, int height, double scale)
@@ -56,11 +53,10 @@ public partial class Generator : Node
         }
     }
 
-    private void CreateMesh(int width, int depth, int height, double cubeSize)
+    private void CreateMesh(int width, int depth, int height)
     {
         var surfaceTool = new SurfaceTool();
         surfaceTool.Begin(Mesh.PrimitiveType.Triangles);
-
         for (int x = 0; x < width; x++)
         {
             for (int y = 0; y < height; y++)
@@ -74,14 +70,12 @@ public partial class Generator : Node
                 }
             }
         }
-
         surfaceTool.Index();
         var material = new StandardMaterial3D
         {
             AlbedoTexture = BlockTexture,
             TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest
         };
-
         var meshInstance = new MeshInstance3D
         {
             Mesh = surfaceTool.Commit(),
@@ -157,7 +151,6 @@ public partial class Generator : Node
         surfaceTool.AddVertex(v2);
         surfaceTool.SetUV(new Vector2(1, 1));
         surfaceTool.AddVertex(v3);
-
         surfaceTool.SetUV(new Vector2(0, 0));
         surfaceTool.AddVertex(v1);
         surfaceTool.SetUV(new Vector2(1, 1));

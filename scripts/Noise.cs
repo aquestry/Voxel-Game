@@ -220,7 +220,6 @@ namespace Noise
             public double dx, dy;
             public int xsb, ysb;
             public Contribution2 Next;
-
             public Contribution2(double multiplier, int xsb, int ysb)
             {
                 dx = -xsb - multiplier * SQUISH_2D;
@@ -235,7 +234,6 @@ namespace Noise
             public double dx, dy, dz;
             public int xsb, ysb, zsb;
             public Contribution3 Next;
-
             public Contribution3(double multiplier, int xsb, int ysb, int zsb)
             {
                 dx = -xsb - multiplier * SQUISH_3D;
@@ -252,7 +250,6 @@ namespace Noise
             public double dx, dy, dz, dw;
             public int xsb, ysb, zsb, wsb;
             public Contribution4 Next;
-
             public Contribution4(double multiplier, int xsb, int ysb, int zsb, int wsb)
             {
                 dx = -xsb - multiplier * SQUISH_4D;
