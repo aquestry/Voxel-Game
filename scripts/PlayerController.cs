@@ -10,7 +10,6 @@ public partial class PlayerController : CharacterBody3D
     private Camera3D _camera;
     private Generator _generator;
     private Manager _manager;
-    private MeshInstance3D _highlightMesh;
     private Vector3I _highlightedBlockPos = new Vector3I(-1, -1, -1);
     private Vector3I _placeBlockPos = new Vector3I(-1, -1, -1);
 
@@ -20,18 +19,6 @@ public partial class PlayerController : CharacterBody3D
         _manager = GetNode<Manager>("../Manager");
         _head = GetNode<Node3D>("Head");
         _camera = GetNode<Camera3D>("Head/Camera3D");
-        _highlightMesh = new MeshInstance3D
-        {
-            Mesh = new BoxMesh(),
-            Visible = false
-        };
-        var highlightMat = new StandardMaterial3D
-        {
-            AlbedoColor = new Color(1, 1, 0, 0.3f),
-            Transparency = BaseMaterial3D.TransparencyEnum.Alpha
-        };
-        _highlightMesh.MaterialOverride = highlightMat;
-        AddChild(_highlightMesh);
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -65,9 +52,9 @@ public partial class PlayerController : CharacterBody3D
             v.Y = 0;
         Velocity = v;
         MoveAndSlide();
-        if (Input.IsActionPressed("break"))
+        if (Input.IsActionJustPressed("break"))
             BreakBlock();
-        if (Input.IsActionPressed("place"))
+        if (Input.IsActionJustPressed("place"))
             PlaceBlock();
     }
 
@@ -77,7 +64,6 @@ public partial class PlayerController : CharacterBody3D
         Vector3 direction = -_camera.GlobalTransform.Basis.Z.Normalized();
         float dist = 0f;
         const float step = 0.1f;
-        _highlightMesh.Visible = false;
         _highlightedBlockPos = new Vector3I(-1, -1, -1);
         _placeBlockPos = new Vector3I(-1, -1, -1);
         Vector3I lastEmptyPos = new Vector3I(-1, -1, -1);
@@ -89,8 +75,6 @@ public partial class PlayerController : CharacterBody3D
             int bz = Mathf.FloorToInt(checkPos.Z);
             if (_generator.GetBlock(bx, by, bz) == 1)
             {
-                _highlightMesh.Visible = true;
-                _highlightMesh.GlobalPosition = new Vector3(bx, by, bz);
                 _highlightedBlockPos = new Vector3I(bx, by, bz);
                 _placeBlockPos = lastEmptyPos;
                 return;
@@ -105,7 +89,6 @@ public partial class PlayerController : CharacterBody3D
 
     private void BreakBlock()
     {
-        if (!_highlightMesh.Visible) return;
         if (_highlightedBlockPos.X < 0) return;
         _generator.SetBlock(
             _highlightedBlockPos.X,
@@ -117,7 +100,6 @@ public partial class PlayerController : CharacterBody3D
 
     private void PlaceBlock()
     {
-        if (!_highlightMesh.Visible) return;
         if (_highlightedBlockPos.X < 0) return;
         if (_placeBlockPos.X < 0) return;
         GD.Print($"[PlaceBlock] placing new block at {_placeBlockPos}");
