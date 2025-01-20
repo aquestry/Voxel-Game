@@ -53,4 +53,5 @@ process_thread_group = 2
 process_thread_group_order = 0
 process_thread_messages = 3
 script = ExtResource("3_d7wil")
+Resolution = 4
 BlockTexture = ExtResource("4_g2n8g")
