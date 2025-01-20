@@ -1,181 +1,141 @@
 using Godot;
-using Noise;
+using System;
+using Noise; // IMPORTANT: This references your existing noise.cs
 
 public partial class Generator : Node
 {
-    private OpenSimplexNoise noise;
-    private int[,,] grid;
-    private double cubeSize;
+    [Export] public int ChunkSize = 16;                    // Each chunk’s dimensions: 16x16x16
+    [Export] public int WorldWidthInChunks = 4;            // How many chunks along X
+    [Export] public int WorldHeightInChunks = 2;           // How many chunks along Y
+    [Export] public int WorldDepthInChunks = 4;            // How many chunks along Z
 
-    [Export]
-    public int Resolution { get; set; } = 1;
+    [Export] public CompressedTexture2D BlockTexture;       // Your block texture
+    [Export] public float NoiseScale = 0.1f;                // Adjust for terrain variation
 
-    [Export]
-    public CompressedTexture2D BlockTexture { get; set; }
+    public OpenSimplexNoise noise;                          // The noise instance (from noise.cs)
+    public Chunk[,,] Chunks;                                // 3D array of Chunk references
 
     public override void _Ready()
     {
-        Regenerate();
-    }
+        // Initialize the noise
+        noise = new OpenSimplexNoise(); // or new OpenSimplexNoise(DateTime.Now.Ticks)
+        // Optionally tweak properties if you want:
+        // noise.Octaves = ...
+        // noise.Seed = ...
+        // noise.Period = ...
+        // noise.Persistence = ...
 
-    private void Regenerate()
-    {
-        foreach (Node child in GetChildren())
-        {
-            RemoveChild(child);
-            child.QueueFree();
-        }
-        int baseWidth = 128;
-        int baseDepth = 128;
-        int baseHeight = 8;
-        int width = baseWidth * Resolution;
-        int depth = baseDepth * Resolution;
-        int height = baseHeight * Resolution;
-        cubeSize = 1.0 / Resolution;
-        noise = new OpenSimplexNoise();
-        grid = new int[width, height, depth];
-        GenerateTerrain(width, depth, height, 0.1 / Resolution);
-        CreateMesh(width, depth, height);
-    }
+        // Create chunk array
+        Chunks = new Chunk[WorldWidthInChunks, WorldHeightInChunks, WorldDepthInChunks];
 
-    private void GenerateTerrain(int width, int depth, int height, double scale)
-    {
-        for (int z = 0; z < depth; z++)
+        // Instantiate each chunk
+        for (int cx = 0; cx < WorldWidthInChunks; cx++)
         {
-            for (int x = 0; x < width; x++)
+            for (int cy = 0; cy < WorldHeightInChunks; cy++)
             {
-                int terrainHeight = Mathf.Clamp((int)((noise.Evaluate(x * scale, z * scale) + 1) / 2 * height), 1, height);
-                for (int y = 0; y <= terrainHeight; y++)
+                for (int cz = 0; cz < WorldDepthInChunks; cz++)
                 {
-                    grid[x, y, z] = 1;
+                    // Create a new Chunk node
+                    var chunk = new Chunk();
+
+                    // Add it as a child so it's in the scene
+                    AddChild(chunk);
+
+                    // Move chunk to correct position in world space
+                    chunk.GlobalPosition = new Vector3(cx * ChunkSize, cy * ChunkSize, cz * ChunkSize);
+
+                    // Initialize chunk data
+                    chunk.Initialize(this, cx, cy, cz);
+
+                    // Store reference
+                    Chunks[cx, cy, cz] = chunk;
                 }
             }
         }
     }
 
-    private void CreateMesh(int width, int depth, int height)
+    /// <summary>
+    /// Returns block value at world coordinates (x,y,z). 1 = block, 0 = empty.
+    /// </summary>
+    public int GetBlock(int x, int y, int z)
     {
-        var surfaceTool = new SurfaceTool();
-        surfaceTool.Begin(Mesh.PrimitiveType.Triangles);
-        for (int x = 0; x < width; x++)
-        {
-            for (int y = 0; y < height; y++)
-            {
-                for (int z = 0; z < depth; z++)
-                {
-                    if (grid[x, y, z] == 1)
-                    {
-                        AddVisibleFaces(surfaceTool, x, y, z, width, height, depth, cubeSize);
-                    }
-                }
-            }
-        }
-        surfaceTool.Index();
-        var material = new StandardMaterial3D
-        {
-            AlbedoTexture = BlockTexture,
-            TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest
-        };
-        var meshInstance = new MeshInstance3D
-        {
-            Mesh = surfaceTool.Commit(),
-            MaterialOverride = material
-        };
-        AddChild(meshInstance);
+        // Check overall bounds
+        if (x < 0 || y < 0 || z < 0) return 0;
+        int maxX = WorldWidthInChunks * ChunkSize;
+        int maxY = WorldHeightInChunks * ChunkSize;
+        int maxZ = WorldDepthInChunks * ChunkSize;
+        if (x >= maxX || y >= maxY || z >= maxZ) return 0;
+
+        // Which chunk are we in?
+        int cx = x / ChunkSize;
+        int cy = y / ChunkSize;
+        int cz = z / ChunkSize;
+
+        Chunk c = Chunks[cx, cy, cz];
+        if (c == null) return 0; // should never happen if fully generated
+
+        // Local coords inside that chunk
+        int lx = x % ChunkSize;
+        int ly = y % ChunkSize;
+        int lz = z % ChunkSize;
+
+        return c.blocks[lx, ly, lz];
     }
 
-    private void AddVisibleFaces(SurfaceTool surfaceTool, int x, int y, int z, int width, int height, int depth, double cubeSize)
+    /// <summary>
+    /// Sets block at world coords (x,y,z) to 'value' (1 or 0), then rebuilds chunk & neighbors if needed.
+    /// </summary>
+    public void SetBlock(int x, int y, int z, int value)
     {
-        Vector3 offset = new Vector3(x, y, z) * (float)cubeSize;
+        // Bounds check
+        if (x < 0 || y < 0 || z < 0) return;
+        int maxX = WorldWidthInChunks * ChunkSize;
+        int maxY = WorldHeightInChunks * ChunkSize;
+        int maxZ = WorldDepthInChunks * ChunkSize;
+        if (x >= maxX || y >= maxY || z >= maxZ) return;
 
-        if (z == 0 || (z > 0 && grid[x, y, z - 1] == 0))
-        {
-            AddQuad(surfaceTool,
-                offset + new Vector3(0, 0, 0) * (float)cubeSize,
-                offset + new Vector3(1, 0, 0) * (float)cubeSize,
-                offset + new Vector3(1, 1, 0) * (float)cubeSize,
-                offset + new Vector3(0, 1, 0) * (float)cubeSize);
-        }
+        int cx = x / ChunkSize;
+        int cy = y / ChunkSize;
+        int cz = z / ChunkSize;
+        Chunk chunk = Chunks[cx, cy, cz];
+        if (chunk == null) return;
 
-        if (z == depth - 1 || (z < depth - 1 && grid[x, y, z + 1] == 0))
-        {
-            AddQuad(surfaceTool,
-                offset + new Vector3(0, 0, 1) * (float)cubeSize,
-                offset + new Vector3(0, 1, 1) * (float)cubeSize,
-                offset + new Vector3(1, 1, 1) * (float)cubeSize,
-                offset + new Vector3(1, 0, 1) * (float)cubeSize);
-        }
+        int lx = x % ChunkSize;
+        int ly = y % ChunkSize;
+        int lz = z % ChunkSize;
 
-        if (x == 0 || (x > 0 && grid[x - 1, y, z] == 0))
-        {
-            AddQuad(surfaceTool,
-                offset + new Vector3(0, 0, 1) * (float)cubeSize,
-                offset + new Vector3(0, 0, 0) * (float)cubeSize,
-                offset + new Vector3(0, 1, 0) * (float)cubeSize,
-                offset + new Vector3(0, 1, 1) * (float)cubeSize);
-        }
+        // Set the block data
+        chunk.blocks[lx, ly, lz] = value;
 
-        if (x == width - 1 || (x < width - 1 && grid[x + 1, y, z] == 0))
-        {
-            AddQuad(surfaceTool,
-                offset + new Vector3(1, 0, 0) * (float)cubeSize,
-                offset + new Vector3(1, 0, 1) * (float)cubeSize,
-                offset + new Vector3(1, 1, 1) * (float)cubeSize,
-                offset + new Vector3(1, 1, 0) * (float)cubeSize);
-        }
+        // Rebuild this chunk
+        chunk.RebuildMesh();
 
-        if (y == height - 1 || (y < height - 1 && grid[x, y + 1, z] == 0))
-        {
-            AddQuad(surfaceTool,
-                offset + new Vector3(0, 1, 0) * (float)cubeSize,
-                offset + new Vector3(1, 1, 0) * (float)cubeSize,
-                offset + new Vector3(1, 1, 1) * (float)cubeSize,
-                offset + new Vector3(0, 1, 1) * (float)cubeSize);
-        }
+        // If we changed a face on the edge, we might need to rebuild adjacent chunks:
+        if (lx == 0 && cx > 0)
+            Chunks[cx - 1, cy, cz]?.RebuildMesh();
+        if (lx == ChunkSize - 1 && cx < WorldWidthInChunks - 1)
+            Chunks[cx + 1, cy, cz]?.RebuildMesh();
 
-        if (y == 0 || (y > 0 && grid[x, y - 1, z] == 0))
-        {
-            AddQuad(surfaceTool,
-                offset + new Vector3(0, 0, 0) * (float)cubeSize,
-                offset + new Vector3(0, 0, 1) * (float)cubeSize,
-                offset + new Vector3(1, 0, 1) * (float)cubeSize,
-                offset + new Vector3(1, 0, 0) * (float)cubeSize);
-        }
+        if (ly == 0 && cy > 0)
+            Chunks[cx, cy - 1, cz]?.RebuildMesh();
+        if (ly == ChunkSize - 1 && cy < WorldHeightInChunks - 1)
+            Chunks[cx, cy + 1, cz]?.RebuildMesh();
+
+        if (lz == 0 && cz > 0)
+            Chunks[cx, cy, cz - 1]?.RebuildMesh();
+        if (lz == ChunkSize - 1 && cz < WorldDepthInChunks - 1)
+            Chunks[cx, cy, cz + 1]?.RebuildMesh();
     }
 
-    private void AddQuad(SurfaceTool surfaceTool, Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4)
+    /// <summary>
+    /// Quick helper used by the player for highlight checks.
+    /// Returns true if there's a block at the float position.
+    /// </summary>
+    public bool IsBlockAt(Vector3 pos)
     {
-        surfaceTool.SetUV(new Vector2(0, 0));
-        surfaceTool.AddVertex(v1);
-        surfaceTool.SetUV(new Vector2(1, 0));
-        surfaceTool.AddVertex(v2);
-        surfaceTool.SetUV(new Vector2(1, 1));
-        surfaceTool.AddVertex(v3);
-        surfaceTool.SetUV(new Vector2(0, 0));
-        surfaceTool.AddVertex(v1);
-        surfaceTool.SetUV(new Vector2(1, 1));
-        surfaceTool.AddVertex(v3);
-        surfaceTool.SetUV(new Vector2(0, 1));
-        surfaceTool.AddVertex(v4);
-    }
-
-    private bool IsValidPosition(int x, int y, int z)
-    {
-        return x >= 0 && x < grid.GetLength(0) && y >= 0 && y < grid.GetLength(1) && z >= 0 && z < grid.GetLength(2);
-    }
-
-    public bool IsBlockAt(Vector3 position)
-    {
-        Vector3 gridPosition = position * Resolution;
-        int x = Mathf.FloorToInt(gridPosition.X);
-        int y = Mathf.FloorToInt(gridPosition.Y);
-        int z = Mathf.FloorToInt(gridPosition.Z);
-        if (x >= 0 && x < grid.GetLength(0) &&
-            y >= 0 && y < grid.GetLength(1) &&
-            z >= 0 && z < grid.GetLength(2))
-        {
-            return grid[x, y, z] == 1;
-        }
-        return false;
+        int bx = Mathf.FloorToInt(pos.X);
+        int by = Mathf.FloorToInt(pos.Y);
+        int bz = Mathf.FloorToInt(pos.Z);
+        return GetBlock(bx, by, bz) == 1;
     }
 }
