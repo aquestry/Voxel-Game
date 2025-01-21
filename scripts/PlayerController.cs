@@ -100,9 +100,17 @@ public partial class PlayerController : CharacterBody3D
 
     private void PlaceBlock()
     {
-        if (_highlightedBlockPos.X < 0) return;
-        if (_placeBlockPos.X < 0) return;
-        GD.Print($"[PlaceBlock] placing new block at {_placeBlockPos}");
+        if (_highlightedBlockPos.X < 0 || _placeBlockPos.X < 0) return;
+        var c = new Vector3(_placeBlockPos.X + 0.5f, _placeBlockPos.Y + 0.5f, _placeBlockPos.Z + 0.5f);
+        var box = new BoxShape3D { Size = Vector3.One };
+        var q = new PhysicsShapeQueryParameters3D
+        {
+            Shape = box,
+            Transform = new Transform3D(Basis.Identity, c),
+            CollideWithBodies = true,
+            CollideWithAreas = true
+        };
+        if (GetWorld3D().DirectSpaceState.IntersectShape(q).Count > 0) return;
         _generator.SetBlock(_placeBlockPos.X, _placeBlockPos.Y, _placeBlockPos.Z, 1);
     }
 

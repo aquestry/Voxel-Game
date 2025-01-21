@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3 uid="uid://b51be1w5dg3aa"]
+[gd_scene load_steps=9 format=3 uid="uid://b51be1w5dg3aa"]
 
 [ext_resource type="Script" path="res://scripts/PlayerController.cs" id="1_14cd5"]
 [ext_resource type="Script" path="res://scripts/Manager.cs" id="1_iuglf"]
@@ -6,6 +6,12 @@
 [ext_resource type="Texture2D" uid="uid://6l4peo8xfjqb" path="res://textures/ground/ground.png" id="4_g2n8g"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_cs0g5"]
+
+[sub_resource type="Environment" id="Environment_kldq8"]
+
+[sub_resource type="CameraAttributesPractical" id="CameraAttributesPractical_6p7bt"]
+
+[sub_resource type="Compositor" id="Compositor_8q14m"]
 
 [node name="Node3D" type="Node3D"]
 transform = Transform3D(0.999999, 0.000824156, 0.000824534, -0.000825606, 0.999998, 0.00176057, -0.000823081, -0.00176125, 0.999998, 0, 0, 0)
@@ -19,13 +25,15 @@ process_thread_group = 2
 process_thread_group_order = 0
 process_thread_messages = 3
 script = ExtResource("3_d7wil")
+WorldHeightInChunks = 1
 BlockTexture = ExtResource("4_g2n8g")
+NoiseScale = 0.05
 
 [node name="Player" type="CharacterBody3D" parent="."]
 script = ExtResource("1_14cd5")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Player"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+transform = Transform3D(0.999505, 0.0299202, -0.00971249, -0.0297281, 0.999371, 0.0193504, 0.0102854, -0.019052, 0.999766, 4.93401e-11, 1, 0)
 shape = SubResource("CapsuleShape3D_cs0g5")
 
 [node name="Head" type="Node3D" parent="Player"]
@@ -54,3 +62,13 @@ text = "RESUME"
 [node name="Exit" type="Button" parent="Menu"]
 layout_mode = 2
 text = "EXIT"
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_kldq8")
+camera_attributes = SubResource("CameraAttributesPractical_6p7bt")
+compositor = SubResource("Compositor_8q14m")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.928657, 0.355402, 0.106238, -0.130343, 0.0445078, 0.99047, 0.347287, -0.933654, 0.0876565, -0.111018, 134.468, 0.236742)
+shadow_enabled = true
+directional_shadow_mode = 0
